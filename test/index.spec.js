@@ -30,6 +30,40 @@ describe('Helicopter', function() {
       instance.processEvent({ value: 42 });
       instance.processEvent({ value: 19 });
     });
+    it('should interrupt when a same type of an action is sent', function(done) {
+      function sendResult(action, state, callbacks) {
+        if (state.interruptedBy) return callbacks.interrupt();
+        if (action.degrees === state.degrees) return callbacks.resolve();
+      }
+      function eventReducer(action, state, event) {
+        if (event.type === 'TURN') state.degrees = event.degrees;
+        return state;
+      }
+      function actionReducer(action, state, nextAction) {
+        if (action.type === nextAction.type) state.interruptedBy = nextAction;
+        return state;
+      }
+      instance.sendAction({ type: 'TURN', degrees: 90 }, {}, sendResult, eventReducer, actionReducer).then(result => {
+        assert.deepEqual(result, {
+          type: 'INTERRUPTED',
+          action: { type: 'TURN', degrees: 90 },
+          state: { degrees: 45, interruptedBy: { type: 'TURN', degrees: 65 } }
+        });
+      }, done);
+      instance.processEvent({ type: 'TURN', degrees: 15 });
+      instance.processEvent({ type: 'TURN', degrees: 30 });
+      instance.processEvent({ type: 'TURN', degrees: 45 });
+      instance.sendAction({ type: 'TURN', degrees: 65 }, {}, sendResult, eventReducer, actionReducer).then(result => {
+        assert.deepEqual(result, {
+          type: 'SUCCESS',
+          action: { type: 'TURN', degrees: 65 },
+          state: { degrees: 65 }
+        });
+        done();
+      }, done);
+      instance.processEvent({ type: 'TURN', degrees: 60 });
+      instance.processEvent({ type: 'TURN', degrees: 65 });
+    });
   });
   describe('with timer', function() {
     const instance = helicopter({ timeout: 100 });
