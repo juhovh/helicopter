@@ -1,52 +1,18 @@
 const winston = require('winston');
 
-function getResolve(pendingAction, resolve, reject) {
+function getResultCallback(pendingAction, type, callback) {
   return function() {
     if (pendingAction.inactive) {
-      winston.error(`Resolving a non-active action ${JSON.stringify(pendingAction.action)}`);
+      winston.error(`Calling ${type} result for a non-active action ${JSON.stringify(pendingAction.action)}`);
       throw new Error('Tried to resolve a non-active action');
     }
-    winston.debug(`Resolving action ${JSON.stringify(pendingAction.action)} with state: ${JSON.stringify(pendingAction.state)}`);
+    winston.debug(`Calling ${type} result for action ${JSON.stringify(pendingAction.action)} with state: ${JSON.stringify(pendingAction.state)}`);
     pendingAction.inactive = true;
-    resolve({
-      type: 'SUCCESS',
+    callback({
+      type,
       action: pendingAction.action,
       state: pendingAction.state
     });
-  };
-}
-
-function getInterrupt(pendingAction, resolve, reject) {
-  return function() {
-    if (pendingAction.inactive) {
-      winston.error(`Interrupting a non-active action ${JSON.stringify(pendingAction.action)}`);
-      throw new Error('Tried to interrupt a non-active action');
-    }
-    winston.debug(`Interrupting action ${JSON.stringify(pendingAction.action)} with state: ${JSON.stringify(pendingAction.state)}`);
-    pendingAction.inactive = true;
-    resolve({
-      type: 'INTERRUPTED',
-      action: pendingAction.action,
-      state: pendingAction.state
-    });
-    return true;
-  };
-}
-
-function getReject(pendingAction, resolve, reject) {
-  return function() {
-    if (pendingAction.inactive) {
-      winston.error(`Rejecting a non-active action ${JSON.stringify(pendingAction.action)}`);
-      throw new Error('Tried to resolve a non-active action');
-    }
-    winston.debug(`Rejecting action ${JSON.stringify(pendingAction.action)} with state: ${JSON.stringify(pendingAction.state)}`);
-    pendingAction.inactive = true;
-    reject({
-      type: 'ERROR',
-      action: pendingAction.action,
-      state: pendingAction.state
-    });
-    return true;
   };
 }
 
@@ -88,9 +54,9 @@ module.exports = function createInstance(options = {}) {
         eventReducer,
       };
       pendingAction.callbacks = {
-        resolve: getResolve(pendingAction, resolve, reject),
-        interrupt: getInterrupt(pendingAction, resolve, reject),
-        reject: getReject(pendingAction, resolve, reject)
+        resolve: getResultCallback(pendingAction, 'SUCCESS', resolve),
+        interrupt: getResultCallback(pendingAction, 'INTERRUPTED', resolve),
+        reject: getResultCallback(pendingAction, 'ERROR', reject)
       };
       pendingActions.push(pendingAction);
       processResults();
