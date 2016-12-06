@@ -2,12 +2,12 @@ const winston = require('winston');
 
 function getResolve(pendingAction, resolve, reject) {
   return function() {
-    if (!pendingAction.active) {
+    if (pendingAction.inactive) {
       winston.error(`Resolving a non-active action ${JSON.stringify(pendingAction.action)}`);
       throw new Error('Tried to resolve a non-active action');
     }
     winston.debug(`Resolving action ${JSON.stringify(pendingAction.action)} with state: ${JSON.stringify(pendingAction.state)}`);
-    pendingAction.active = false;
+    pendingAction.inactive = true;
     resolve({
       type: 'SUCCESS',
       action: pendingAction.action,
@@ -18,12 +18,12 @@ function getResolve(pendingAction, resolve, reject) {
 
 function getInterrupt(pendingAction, resolve, reject) {
   return function() {
-    if (!pendingAction.active) {
+    if (pendingAction.inactive) {
       winston.error(`Interrupting a non-active action ${JSON.stringify(pendingAction.action)}`);
       throw new Error('Tried to interrupt a non-active action');
     }
     winston.debug(`Interrupting action ${JSON.stringify(pendingAction.action)} with state: ${JSON.stringify(pendingAction.state)}`);
-    pendingAction.active = false;
+    pendingAction.inactive = true;
     resolve({
       type: 'INTERRUPTED',
       action: pendingAction.action,
@@ -35,12 +35,12 @@ function getInterrupt(pendingAction, resolve, reject) {
 
 function getReject(pendingAction, resolve, reject) {
   return function() {
-    if (!pendingAction.active) {
+    if (pendingAction.inactive) {
       winston.error(`Rejecting a non-active action ${JSON.stringify(pendingAction.action)}`);
       throw new Error('Tried to resolve a non-active action');
     }
     winston.debug(`Rejecting action ${JSON.stringify(pendingAction.action)} with state: ${JSON.stringify(pendingAction.state)}`);
-    pendingAction.active = false;
+    pendingAction.inactive = true;
     reject({
       type: 'ERROR',
       action: pendingAction.action,
@@ -67,7 +67,7 @@ module.exports = function createInstance(options = {}) {
 
   function processResults() {
     pendingActions.forEach(obj => obj.sendResult(obj.action, obj.state, obj.callbacks));
-    pendingActions = pendingActions.filter(obj => obj.active);
+    pendingActions = pendingActions.filter(obj => !obj.inactive);
   }
 
   function sendAction(action, initialState, sendResult, eventReducer, actionReducer) {
@@ -82,7 +82,6 @@ module.exports = function createInstance(options = {}) {
     return new Promise((resolve, reject) => {
       const pendingAction = {
         state: initialState,
-        active: true,
         action,
         sendResult,
         actionReducer,
